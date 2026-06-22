@@ -1,14 +1,40 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const { verifyToken } = require('../configs/jwt');
 
-module.exports = (req, res, next) => {
-  const token = req.header('Authorization');
-  if (!token) return res.status(401).send('Access Denied');
+const protect = async (req, res, next) => {
+  let token;
 
-  try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified;
-    next();
-  } catch (err) {
-    res.status(400).send('Invalid Token');
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = verifyToken(token);
+
+      req.user = await User.findById(decoded.id).select('-password');
+      if (!req.user) {
+        return res.status(401).json({ success: false, error: 'User context matching this token not found' });
+      }
+      return next();
+    } catch (error) {
+      return res.status(401).json({ success: false, error: 'Not authorized, access validation token invalid' });
+    }
+  }
+
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Authorization header infrastructure missing' });
   }
 };
+
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: `User role [${req.user.role}] cannot access this scope resource`
+      });
+    }
+    next();
+  };
+};
+
+module.exports = { protect, authorize };
