@@ -1,8 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { getPortfolio } = require('../controllers/portfolioController');
-const auth = require('../middleware/auth');
+const { getPortfolioSummary, updatePortfolio } = require('../controllers/portfolio/portfolioController');
+const { executeTransaction, getTransactionHistory } = require('../controllers/portfolio/transactionController');
+const { getHoldings } = require('../controllers/portfolio/holdingController');
+const { protect } = require('../middleware/authMiddleware');
 
-router.get('/', auth, getPortfolio);
+router.use(protect);
+
+router.route('/')
+  .get(getPortfolioSummary)
+  .put(updatePortfolio);
+
+router.route('/holdings')
+  .get(getHoldings);
+
+router.route('/transactions')
+  .get(getTransactionHistory)
+  .post(executeTransaction);
 
 module.exports = router;
